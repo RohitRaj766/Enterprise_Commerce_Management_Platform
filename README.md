@@ -1,3 +1,48 @@
+# Nector — Demo (Infoware Assignment)
+
+Quickstart (local, SQLite)
+
+1. Install dependencies
+
+```bash
+npm install
+```
+
+If you see peer-dependency errors (common with bleeding-edge React versions), run:
+
+```bash
+npm install --legacy-peer-deps
+```
+
+2. Create `.env` from `.env.example`
+
+```bash
+cp .env.example .env
+```
+
+3. Generate Prisma client and run migrations
+
+```bash
+npx prisma generate
+npx prisma migrate dev --name init
+node scripts/seed.js
+```
+
+4. Start dev server
+
+```bash
+npm run dev
+```
+
+5. Run unit tests
+
+```bash
+npm run test:unit
+```
+
+Notes
+- This demo uses SQLite for quick local setup (see `.env.example`).
+- Integration tests expect the dev server or DB to be available depending on the test. Run them individually as needed.
 # Nectar - Online Grocery Delivery Platform
 
 A modern, full-featured grocery delivery web application built with Next.js 16, TypeScript, Tailwind CSS v4, Zustand, and Zod. Features a complete e-commerce experience with authentication, product browsing, shopping cart, and order management.

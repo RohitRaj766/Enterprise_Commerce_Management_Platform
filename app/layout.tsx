@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
+import QueryProvider from "../providers/QueryProvider"
 
 const gilroyLight = localFont({
   src: "../public/fonts/Gilroy/Gilroy-Light.otf",
@@ -59,8 +60,10 @@ export default function RootLayout({
       <body
         className={`${gilroyLight.variable} ${gilroyExtraBold.variable} antialiased`}
       >
-        {children}
-        <Toaster position="bottom-center" />
+        <QueryProvider>
+          {children}
+          <Toaster position="bottom-center" />
+        </QueryProvider>
       </body>
     </html>
   );

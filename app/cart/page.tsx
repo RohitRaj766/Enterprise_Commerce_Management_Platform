@@ -10,6 +10,9 @@ import { CartItemSkeleton, Skeleton } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
+import { useRecommendations } from '@/lib/hooks/useRecommendations';
+
+const CART_COUPON_STORAGE_KEY = 'nectar-applied-coupon';
 
 export default function CartPage() {
   const router = useRouter();
@@ -18,6 +21,16 @@ export default function CartPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponMessage, setCouponMessage] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    title: string;
+    type: 'percent' | 'flat';
+    value: number;
+    discountAmount: number;
+  } | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -31,7 +44,55 @@ export default function CartPage() {
     }
     return undefined;
   }, [isAuthenticated, router]);
-  const total = useMemo(() => totalPrice().toFixed(2), [items, totalPrice]);
+  const subtotal = useMemo(() => totalPrice(), [items, totalPrice]);
+  const couponDiscount = appliedCoupon?.discountAmount ?? 0;
+  const total = useMemo(() => Math.max(0, subtotal - couponDiscount), [subtotal, couponDiscount]);
+  const subtotalText = subtotal.toFixed(2);
+  const totalText = total.toFixed(2);
+  const recommendations = useRecommendations(4, items.map((item) => item.product.id));
+
+  const handleApplyCoupon = async () => {
+    setCouponMessage(null);
+    setCouponError(null);
+
+    const trimmed = couponCode.trim();
+    if (!trimmed) {
+      setCouponError('Enter a coupon code to apply a discount.');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: trimmed, subtotal }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error ?? 'Invalid coupon');
+      }
+
+      setAppliedCoupon(data.coupon);
+      localStorage.setItem(CART_COUPON_STORAGE_KEY, JSON.stringify(data.coupon));
+      setCouponMessage(`${data.coupon.code} applied successfully.`);
+      toast.success(`Coupon ${data.coupon.code} applied`);
+    } catch (error) {
+      setAppliedCoupon(null);
+      localStorage.removeItem(CART_COUPON_STORAGE_KEY);
+      const message = error instanceof Error ? error.message : 'Failed to apply coupon';
+      setCouponError(message);
+      toast.error(message);
+    }
+  };
+
+  const handleClearCoupon = () => {
+    setCouponCode('');
+    setAppliedCoupon(null);
+    localStorage.removeItem(CART_COUPON_STORAGE_KEY);
+    setCouponError(null);
+    setCouponMessage(null);
+  };
 
   const openCheckout = () => {
     if (items.length === 0) return;
@@ -48,74 +109,6 @@ export default function CartPage() {
       router.push('/payment-gateway');
     }, 900);
   };
-
-  const CheckoutSummary = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between py-3 border-b border-gray-100">
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Delivery</p>
-          <p className="text-xs text-gray-500 mt-0.5">Select Method</p>
-        </div>
-        <button
-          type="button"
-          className="text-sm font-semibold text-gray-700 flex items-center gap-1"
-          aria-label="Choose delivery method"
-        >
-          Select
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="flex items-center justify-between py-3 border-b border-gray-100">
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Payment</p>
-          <p className="text-xs text-gray-500 mt-0.5">Select Method</p>
-        </div>
-        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-          <span className="inline-block w-5 h-3 rounded-sm bg-gradient-to-r from-blue-600 to-red-500" />
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between py-3 border-b border-gray-100">
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Promo Code</p>
-          <p className="text-xs text-gray-500 mt-0.5">Pick discount</p>
-        </div>
-        <button
-          type="button"
-          className="text-sm font-semibold text-gray-700 flex items-center gap-1"
-          aria-label="Apply promo code"
-        >
-          Add
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-
-      <div className="flex items-center justify-between py-3">
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Total Cost</p>
-          <p className="text-xs text-gray-500 mt-0.5">Including VAT</p>
-        </div>
-        <p className="text-lg font-bold text-gray-900">${total}</p>
-      </div>
-
-      <p className="text-xs text-gray-500">
-        By placing an order you agree to our{' '}
-        <span className="text-gray-900 font-semibold">Terms and Conditions</span>
-      </p>
-
-      <Button variant="primary" onClick={handlePlaceOrder} disabled={items.length === 0} isLoading={isPlacingOrder}>
-        Place Order
-      </Button>
-    </div>
-  );
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -208,7 +201,7 @@ export default function CartPage() {
                     >
                       ×
                     </button>
-                    <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white flex-shrink-0">
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white">
                       <Image
                         src={product.image}
                         alt={product.name}
@@ -226,18 +219,20 @@ export default function CartPage() {
                             type="button"
                             onClick={() => handleDecrement(product.id, product.name)}
                             className="px-3 py-1.5 text-gray-600 hover:text-gray-900"
+                            aria-label={`Decrease quantity for ${product.name}`}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                             </svg>
                           </button>
-                          <span className="px-3 py-1.5 text-sm font-semibold text-gray-900 min-w-[2rem] text-center">
+                          <span className="min-w-8 px-3 py-1.5 text-center text-sm font-semibold text-gray-900">
                             {quantity}
                           </span>
                           <button
                             type="button"
                             onClick={() => handleIncrement(product.id, product.name)}
                             className="px-3 py-1.5 text-[#53B175] hover:text-[#45a065]"
+                            aria-label={`Increase quantity for ${product.name}`}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -246,7 +241,7 @@ export default function CartPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       <p className="text-sm font-bold text-gray-900">${(product.price * quantity).toFixed(2)}</p>
                     </div>
                   </div>
@@ -259,21 +254,72 @@ export default function CartPage() {
           <aside className="hidden lg:block bg-white rounded-3xl shadow-sm border border-gray-100 p-6 space-y-5">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600">Subtotal</p>
-              <p className="text-lg font-semibold text-gray-900">${total}</p>
+              <p className="text-lg font-semibold text-gray-900">${subtotalText}</p>
             </div>
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-600">Delivery</p>
               <p className="text-sm font-medium text-gray-900">Free</p>
             </div>
+            {appliedCoupon && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">Discount ({appliedCoupon.code})</p>
+                <p className="text-sm font-medium text-[#53B175]">- ${couponDiscount.toFixed(2)}</p>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-gray-100 pt-3">
               <p className="text-base font-semibold text-gray-900">Total</p>
-              <p className="text-xl font-bold text-gray-900">${total}</p>
+              <p className="text-xl font-bold text-gray-900">${totalText}</p>
             </div>
             <div className="border-t border-gray-100 pt-4">
-              <CheckoutSummary />
+              <CheckoutSummary
+                items={items}
+                couponCode={couponCode}
+                setCouponCode={setCouponCode}
+                appliedCoupon={appliedCoupon}
+                couponMessage={couponMessage}
+                couponError={couponError}
+                couponDiscount={couponDiscount}
+                subtotalText={subtotalText}
+                totalText={totalText}
+                handleApplyCoupon={handleApplyCoupon}
+                handleClearCoupon={handleClearCoupon}
+                handlePlaceOrder={handlePlaceOrder}
+                isPlacingOrder={isPlacingOrder}
+              />
             </div>
           </aside>
         </div>
+
+        <section className="mt-6 bg-white rounded-3xl shadow-sm border border-gray-100 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-gray-500">Recommendations</p>
+              <h2 className="text-lg font-semibold text-gray-900">You might also like</h2>
+            </div>
+          </div>
+
+          {recommendations.isLoading ? (
+            <p className="mt-4 text-sm text-gray-500">Loading recommendations...</p>
+          ) : (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {recommendations.data?.map((product) => (
+                <div key={product.id} className="rounded-2xl border border-gray-100 p-2">
+                  <Image
+                    src={product.image}
+                    alt={product.name}
+                    width={160}
+                    height={120}
+                    className="mx-auto object-contain"
+                  />
+                  <div className="p-2">
+                    <p className="text-sm font-semibold text-gray-900">{product.name}</p>
+                    <p className="text-xs text-gray-500">{product.unit}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {items.length > 0 && (
           <div className="fixed bottom-20 left-0 right-0 px-5 z-10 lg:hidden">
@@ -284,7 +330,7 @@ export default function CartPage() {
             >
               <span>Go to Checkout</span>
               <span className="bg-[#45a065] rounded-xl px-4 py-2 font-semibold">
-                ${total}
+                ${totalText}
               </span>
             </button>
           </div>
@@ -312,7 +358,21 @@ export default function CartPage() {
               </button>
             </div>
             <div className="px-5 pb-6 pt-4">
-              <CheckoutSummary />
+              <CheckoutSummary
+                items={items}
+                couponCode={couponCode}
+                setCouponCode={setCouponCode}
+                appliedCoupon={appliedCoupon}
+                couponMessage={couponMessage}
+                couponError={couponError}
+                couponDiscount={couponDiscount}
+                subtotalText={subtotalText}
+                totalText={totalText}
+                handleApplyCoupon={handleApplyCoupon}
+                handleClearCoupon={handleClearCoupon}
+                handlePlaceOrder={handlePlaceOrder}
+                isPlacingOrder={isPlacingOrder}
+              />
             </div>
           </div>
         </div>
@@ -323,5 +383,145 @@ export default function CartPage() {
       </div>
     </div>
   );
+}
+
+type CheckoutSummaryProps = {
+  items: Array<{
+    product: {
+      id: string;
+      name: string;
+      unit: string;
+      price: number;
+    };
+    quantity: number;
+  }>;
+  couponCode: string;
+  setCouponCode: (value: string) => void;
+  appliedCoupon: {
+    code: string;
+    title: string;
+    type: 'percent' | 'flat';
+    value: number;
+    discountAmount: number;
+  } | null;
+  couponMessage: string | null;
+  couponError: string | null;
+  couponDiscount: number;
+  subtotalText: string;
+  totalText: string;
+  handleApplyCoupon: () => void | Promise<void>;
+  handleClearCoupon: () => void;
+  handlePlaceOrder: () => void;
+  isPlacingOrder: boolean;
+};
+
+function CheckoutSummary({
+  items,
+  couponCode,
+  setCouponCode,
+  appliedCoupon,
+  couponMessage,
+  couponError,
+  couponDiscount,
+  subtotalText,
+  totalText,
+  handleApplyCoupon,
+  handleClearCoupon,
+  handlePlaceOrder,
+  isPlacingOrder,
+}: CheckoutSummaryProps) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between py-3 border-b border-gray-100">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Delivery</p>
+          <p className="text-xs text-gray-500 mt-0.5">Select Method</p>
+        </div>
+        <button
+          type="button"
+          className="text-sm font-semibold text-gray-700 flex items-center gap-1"
+          aria-label="Choose delivery method"
+        >
+          Select
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between py-3 border-b border-gray-100">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Payment</p>
+          <p className="text-xs text-gray-500 mt-0.5">Select Method</p>
+        </div>
+        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <span className="inline-block h-3 w-5 rounded-sm bg-linear-to-r from-blue-600 to-red-500" aria-hidden="true" />
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between py-3 border-b border-gray-100">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Promo Code</p>
+          <p className="text-xs text-gray-500 mt-0.5">Pick discount</p>
+        </div>
+        {appliedCoupon ? (
+          <div className="text-right">
+            <p className="text-sm font-semibold text-[#53B175]">{appliedCoupon.code}</p>
+            <button type="button" onClick={handleClearCoupon} className="text-xs font-semibold text-gray-500 underline">
+              Remove
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={couponCode}
+              onChange={(event) => setCouponCode(event.target.value)}
+              placeholder="SAVE10"
+              className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#53B175] focus:outline-none"
+              aria-label="Coupon code"
+            />
+            <button
+              type="button"
+              onClick={handleApplyCoupon}
+              className="rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white"
+            >
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
+
+      {couponMessage && <p className="text-xs text-[#53B175]">{couponMessage}</p>}
+      {couponError && <p className="text-xs text-red-500">{couponError}</p>}
+
+      {appliedCoupon && (
+        <div className="flex items-center justify-between py-3 border-b border-gray-100">
+          <p className="text-sm font-semibold text-gray-900">Discount</p>
+          <p className="text-sm font-bold text-[#53B175]">- ${couponDiscount.toFixed(2)}</p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between py-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Total Cost</p>
+          <p className="text-xs text-gray-500 mt-0.5">Including VAT</p>
+        </div>
+        <p className="text-lg font-bold text-gray-900">${totalText}</p>
+      </div>
+
+      <p className="text-xs text-gray-500">
+        By placing an order you agree to our{' '}
+        <span className="text-gray-900 font-semibold">Terms and Conditions</span>
+      </p>
+
+      <Button variant="primary" onClick={handlePlaceOrder} disabled={items.length === 0} isLoading={isPlacingOrder}>
+        Place Order
+      </Button>
+    </div>
+  )
 }
 
