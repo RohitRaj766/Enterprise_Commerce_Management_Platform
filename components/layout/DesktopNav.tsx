@@ -7,6 +7,7 @@ import { AccountIcon, CartIcon, ExploreIcon, FavoriteIcon, StoreIcon } from '@/c
 const tabs = [
   { href: '/home', label: 'Shop', Icon: StoreIcon },
   { href: '/explore', label: 'Explore', Icon: ExploreIcon },
+  { href: '/dashboard-builder', label: 'Manager', Icon: StoreIcon },
   { href: '/cart', label: 'Cart', Icon: CartIcon },
   { href: '/favorites', label: 'Favorite', Icon: FavoriteIcon },
   { href: '/account', label: 'Account', Icon: AccountIcon },

@@ -7,6 +7,7 @@ import { AccountIcon, CartIcon, ExploreIcon, FavoriteIcon, StoreIcon } from '@/c
 const tabs = [
   { href: '/home', label: 'Shop', Icon: StoreIcon },
   { href: '/explore', label: 'Explore', Icon: ExploreIcon },
+  { href: '/dashboard-builder', label: 'Manager', Icon: StoreIcon },
   { href: '/cart', label: 'Cart', Icon: CartIcon },
   { href: '/favorites', label: 'Favorite', Icon: FavoriteIcon },
   { href: '/account', label: 'Account', Icon: AccountIcon },
@@ -17,7 +18,7 @@ export const BottomNav = () => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-2xl shadow-black/5">
-      <div className="grid grid-cols-5">
+      <div className="grid grid-cols-6">
         {tabs.map((tab) => {
           const active = pathname.startsWith(tab.href);
           return (

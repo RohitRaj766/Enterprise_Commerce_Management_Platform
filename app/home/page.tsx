@@ -66,6 +66,8 @@ export default function HomePage() {
   const exclusive = products.filter((p) => p.isExclusive);
   const bestSelling = products.filter((p) => p.isBestSelling);
   const searchResults = filteredProducts();
+  const carouselTranslateClass =
+    currentCarouselIndex === 0 ? 'translate-x-0' : currentCarouselIndex === 1 ? '-translate-x-full' : '-translate-x-[200%]';
 
   // Auto-play carousel
   useEffect(() => {
@@ -195,6 +197,12 @@ export default function HomePage() {
               >
                 <Image src="/assets/navigation/cart.svg" alt="Cart" width={18} height={18} />
               </Link>
+              <Link
+                href="/dashboard-builder"
+                className="rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm hover:border-[#53B175] hover:text-[#53B175] transition-colors"
+              >
+                Manager
+              </Link>
             </div>
           </div>
         </div>
@@ -202,7 +210,7 @@ export default function HomePage() {
         <div className="lg:grid lg:grid-cols-[260px_1fr] lg:gap-6 lg:mt-6">
           {/* Desktop sidebar */}
           <aside className="hidden lg:flex flex-col gap-4 sticky top-6 self-start">
-            <div className="rounded-2xl bg-gradient-to-r from-green-50 to-white border border-gray-100 p-5 shadow-sm">
+            <div className="rounded-2xl bg-linear-to-r from-green-50 to-white border border-gray-100 p-5 shadow-sm">
               <p className="text-xs text-gray-500 mb-2">Your location</p>
               <Link href="/location" className="flex items-center gap-2 text-lg font-semibold text-gray-900 hover:text-[#53B175]">
                 <Image src="/assets/locicon.png" alt="Location icon" width={18} height={18} />
@@ -293,16 +301,13 @@ export default function HomePage() {
             <main className="px-4 space-y-8 mt-4 lg:px-8 lg:py-8">
               <section>
                 <div className="relative overflow-hidden rounded-2xl lg:rounded-3xl lg:h-56">
-                  <div
-                    className="flex transition-transform duration-500 ease-in-out h-full"
-                    style={{ transform: `translateX(-${currentCarouselIndex * 100}%)` }}
-                  >
+                  <div className={`flex h-full transition-transform duration-500 ease-in-out ${carouselTranslateClass}`}>
                     {carouselBanners.map((banner) => (
                       <div
                         key={banner.id}
-                        className="min-w-full bg-gradient-to-r from-green-50 to-green-100 rounded-2xl p-4 lg:p-6 flex items-center gap-4"
+                        className="min-w-full bg-linear-to-r from-green-50 to-green-100 rounded-2xl p-4 lg:p-6 flex items-center gap-4"
                       >
-                        <div className="w-20 h-20 lg:w-28 lg:h-28 relative rounded-xl overflow-hidden bg-white flex-shrink-0 border border-gray-100">
+                        <div className="w-20 h-20 lg:w-28 lg:h-28 relative rounded-xl overflow-hidden bg-white shrink-0 border border-gray-100">
                           <Image
                             src={banner.image}
                             alt={banner.title}
